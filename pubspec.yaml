@@ -1,0 +1,37 @@
+name: ipestcontrol
+description: "A new Flutter project."
+publish_to: 'none'
+
+version: 1.0.0+1
+
+environment:
+  sdk: ^3.10.0
+
+dependencies:
+  flutter:
+    sdk: flutter
+  shared_preferences: ^2.2.2
+  webview_flutter: ^4.7.0
+  cupertino_icons: ^1.0.8
+  app_settings: ^5.1.1
+  connectivity_plus: ^5.0.2
+  network_info_plus: ^5.0.3
+  url_launcher: ^6.2.2
+  web_socket_channel: ^2.4.0
+  http: ^1.1.0
+  flutter_svg: ^2.0.10+1
+  lottie: ^3.1.0  # ✅ Add this line
+  #network_info_plus: ^4.1.0
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+
+  flutter_lints: ^6.0.0
+
+flutter:
+  uses-material-design: true
+
+  assets:
+    - assets/images/
+    - assets/lottie/  # ✅ Add this for Lottie 
