@@ -1,5 +1,8 @@
+import 'dart:async';
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:webview_flutter/webview_flutter.dart';
+import 'package:http/http.dart' as http;
 import '../services/rpi_service.dart';
 
 class MonitoringScreen extends StatefulWidget {
@@ -14,10 +17,19 @@ class _MonitoringScreenState extends State<MonitoringScreen> {
 
   bool _isConnected = false;
   bool _isConnecting = false;
-  String? _mode; // hotspot | wifi
+  String? _mode;
   String? _error;
 
   WebViewController? _webViewController;
+
+  Timer? _fpsTimer;
+  int? _fps;
+
+  @override
+  void dispose() {
+    _fpsTimer?.cancel();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -141,22 +153,16 @@ class _MonitoringScreenState extends State<MonitoringScreen> {
           borderRadius: BorderRadius.circular(24),
         ),
         child: _isConnecting
-            ? const Center(
-                child: CircularProgressIndicator(color: Colors.white),
-              )
+            ? const Center(child: CircularProgressIndicator(color: Colors.white))
             : !_isConnected
-                ? const Center(
-                    child: Text(
-                      'Camera Offline',
-                      style: TextStyle(color: Colors.white54),
-                    ),
-                  )
-                : ClipRRect(
-                    borderRadius: BorderRadius.circular(24),
-                    child: WebViewWidget(
-                      controller: _webViewController!,
-                    ),
-                  ),
+            ? const Center(
+          child: Text('Camera Offline',
+              style: TextStyle(color: Colors.white54)),
+        )
+            : ClipRRect(
+          borderRadius: BorderRadius.circular(24),
+          child: WebViewWidget(controller: _webViewController!),
+        ),
       ),
     );
   }
@@ -217,14 +223,17 @@ class _MonitoringScreenState extends State<MonitoringScreen> {
           color: Colors.white,
           borderRadius: BorderRadius.circular(16),
         ),
-        child: const Row(
+        child: Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.speed_rounded, size: 18, color: Colors.grey),
-            SizedBox(width: 8),
+            const Icon(Icons.speed_rounded, size: 18, color: Colors.grey),
+            const SizedBox(width: 8),
             Text(
-              'FPS: N/A',
-              style: TextStyle(fontWeight: FontWeight.bold, color: Colors.grey),
+              _fps == null ? 'FPS: N/A' : 'FPS: $_fps',
+              style: const TextStyle(
+                fontWeight: FontWeight.bold,
+                color: Colors.grey,
+              ),
             ),
           ],
         ),
@@ -275,6 +284,8 @@ class _MonitoringScreenState extends State<MonitoringScreen> {
       _webViewController = WebViewController()
         ..setJavaScriptMode(JavaScriptMode.unrestricted)
         ..loadRequest(Uri.parse(_rpiService.videoFeedUrl));
+
+      _startFpsPolling();
     }
 
     setState(() {
@@ -286,12 +297,39 @@ class _MonitoringScreenState extends State<MonitoringScreen> {
   }
 
   void _stop() {
+    _fpsTimer?.cancel();
     setState(() {
       _isConnected = false;
       _mode = null;
       _error = null;
+      _fps = null;
       _webViewController = null;
     });
+  }
+
+  // ================= FPS POLLING =================
+  void _startFpsPolling() {
+    _fpsTimer?.cancel();
+
+    _fpsTimer = Timer.periodic(
+      const Duration(milliseconds: 500),
+          (_) async {
+        try {
+          final res = await http.get(
+            Uri.parse('http://${_rpiService.rpiIpAddress}:5000/metadata'),
+          );
+
+          if (res.statusCode == 200) {
+            final data = jsonDecode(res.body);
+            if (mounted) {
+              setState(() {
+                _fps = data['fps'];
+              });
+            }
+          }
+        } catch (_) {}
+      },
+    );
   }
 
   Widget _actionButton({
