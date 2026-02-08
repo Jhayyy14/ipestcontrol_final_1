@@ -12,7 +12,7 @@ class MonitoringScreen extends StatefulWidget {
   State<MonitoringScreen> createState() => _MonitoringScreenState();
 }
 
-class _MonitoringScreenState extends State<MonitoringScreen> {
+class _MonitoringScreenState extends State<MonitoringScreen> with AutomaticKeepAliveClientMixin {
   final RpiService _rpiService = RpiService();
 
   bool _isConnected = false;
@@ -34,20 +34,20 @@ class _MonitoringScreenState extends State<MonitoringScreen> {
   @override
   Widget build(BuildContext context) {
     final bool isHotspot = _mode == 'hotspot';
-
+    super.build(context);
     return Scaffold(
       backgroundColor: const Color(0xFFF5F6FB),
       body: SafeArea(
         child: Column(
           children: [
             _header(isHotspot),
-            const SizedBox(height: 16),
+            const SizedBox(height: 18),
             _videoPreview(),
-            const SizedBox(height: 16),
+            const SizedBox(height: 18),
             _statusCard(),
-            const SizedBox(height: 12),
+            const SizedBox(height: 10),
             _fpsIndicator(),
-            const SizedBox(height: 16),
+            const SizedBox(height: 20),
             _controlButtons(),
             const Spacer(),
           ],
@@ -59,18 +59,20 @@ class _MonitoringScreenState extends State<MonitoringScreen> {
   // ================= HEADER =================
   Widget _header(bool isHotspot) {
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16),
+      padding: const EdgeInsets.all(16),
       child: Container(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 22),
         decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(24),
+          borderRadius: BorderRadius.circular(28),
           gradient: const LinearGradient(
-            colors: [Color(0xFF00B4A6), Color(0xFF6366F1)],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [Color(0xFF1DB5A6), Color(0xFF5B6CFF)],
           ),
         ),
         child: Row(
           children: [
-            _iconButton(Icons.videocam_rounded),
+            _roundIcon(Icons.videocam_rounded),
             const SizedBox(width: 16),
             Expanded(
               child: Column(
@@ -80,30 +82,30 @@ class _MonitoringScreenState extends State<MonitoringScreen> {
                     'LIVE\nMONITORING',
                     style: TextStyle(
                       color: Colors.white,
-                      fontSize: 22,
-                      fontWeight: FontWeight.bold,
+                      fontSize: 24,
+                      fontWeight: FontWeight.w800,
                       height: 1.1,
                     ),
                   ),
-                  const SizedBox(height: 8),
+                  const SizedBox(height: 10),
                   _modeBadge(isHotspot),
                 ],
               ),
             ),
-            _iconButton(Icons.refresh_rounded),
+            _roundIcon(Icons.refresh_rounded),
           ],
         ),
       ),
     );
   }
 
-  Widget _iconButton(IconData icon) {
+  Widget _roundIcon(IconData icon) {
     return Container(
-      height: 48,
-      width: 48,
+      height: 50,
+      width: 50,
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.2),
-        borderRadius: BorderRadius.circular(16),
+        color: Colors.white.withOpacity(0.18),
+        borderRadius: BorderRadius.circular(18),
       ),
       child: Icon(icon, color: Colors.white),
     );
@@ -111,24 +113,24 @@ class _MonitoringScreenState extends State<MonitoringScreen> {
 
   Widget _modeBadge(bool isHotspot) {
     if (_isConnecting) {
-      return _badge('Connecting...', Icons.sync, Colors.white70);
+      return _badge('Connecting...', Icons.sync, Colors.white);
     }
     if (!_isConnected) {
-      return _badge('Offline', Icons.wifi_off, Colors.grey);
+      return _badge('Offline', Icons.wifi_off, Colors.white70);
     }
     return _badge(
       isHotspot ? 'Hotspot Mode' : 'WiFi Mode',
-      isHotspot ? Icons.wifi_tethering : Icons.wifi,
-      isHotspot ? Colors.amber : Colors.lightBlue,
+      Icons.wifi,
+      Colors.amber,
     );
   }
 
   Widget _badge(String text, IconData icon, Color color) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
       decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.25),
-        borderRadius: BorderRadius.circular(20),
+        color: color.withOpacity(0.25),
+        borderRadius: BorderRadius.circular(30),
         border: Border.all(color: color),
       ),
       child: Row(
@@ -136,7 +138,13 @@ class _MonitoringScreenState extends State<MonitoringScreen> {
         children: [
           Icon(icon, size: 14, color: color),
           const SizedBox(width: 6),
-          Text(text, style: TextStyle(color: color, fontWeight: FontWeight.w600)),
+          Text(
+            text,
+            style: TextStyle(
+              color: color,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
         ],
       ),
     );
@@ -147,20 +155,22 @@ class _MonitoringScreenState extends State<MonitoringScreen> {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16),
       child: Container(
-        height: 230,
+        height: 250,
         decoration: BoxDecoration(
           color: Colors.black,
-          borderRadius: BorderRadius.circular(24),
+          borderRadius: BorderRadius.circular(28),
         ),
         child: _isConnecting
             ? const Center(child: CircularProgressIndicator(color: Colors.white))
             : !_isConnected
             ? const Center(
-          child: Text('Camera Offline',
-              style: TextStyle(color: Colors.white54)),
+          child: Text(
+            'Camera Offline',
+            style: TextStyle(color: Colors.white54),
+          ),
         )
             : ClipRRect(
-          borderRadius: BorderRadius.circular(24),
+          borderRadius: BorderRadius.circular(28),
           child: WebViewWidget(controller: _webViewController!),
         ),
       ),
@@ -175,20 +185,19 @@ class _MonitoringScreenState extends State<MonitoringScreen> {
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
           color: Colors.white,
-          borderRadius: BorderRadius.circular(20),
+          borderRadius: BorderRadius.circular(22),
         ),
         child: Row(
           children: [
-            SizedBox(
+            Container(
               width: 4,
-              height: 50,
-              child: DecoratedBox(
-                decoration: BoxDecoration(
-                  color: _isConnected ? Colors.green : Colors.grey,
-                ),
+              height: 52,
+              decoration: BoxDecoration(
+                color: _isConnected ? Colors.green : Colors.grey,
+                borderRadius: BorderRadius.circular(4),
               ),
             ),
-            const SizedBox(width: 12),
+            const SizedBox(width: 14),
             Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -218,10 +227,10 @@ class _MonitoringScreenState extends State<MonitoringScreen> {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16),
       child: Container(
-        height: 42,
+        height: 44,
         decoration: BoxDecoration(
           color: Colors.white,
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(18),
         ),
         child: Row(
           mainAxisAlignment: MainAxisAlignment.center,
@@ -251,7 +260,7 @@ class _MonitoringScreenState extends State<MonitoringScreen> {
             child: _actionButton(
               label: 'START',
               icon: Icons.play_arrow_rounded,
-              color: Colors.teal,
+              color: const Color(0xFF5DBFB6),
               enabled: !_isConnecting && !_isConnected,
               onTap: _start,
             ),
@@ -261,7 +270,7 @@ class _MonitoringScreenState extends State<MonitoringScreen> {
             child: _actionButton(
               label: 'STOP',
               icon: Icons.stop_rounded,
-              color: Colors.redAccent,
+              color: const Color(0xFFFF5C5C),
               enabled: _isConnected,
               onTap: _stop,
             ),
@@ -281,6 +290,7 @@ class _MonitoringScreenState extends State<MonitoringScreen> {
     if (!mounted) return;
 
     if (ok) {
+      _webViewController?.clearCache();
       _webViewController = WebViewController()
         ..setJavaScriptMode(JavaScriptMode.unrestricted)
         ..loadRequest(Uri.parse(_rpiService.videoFeedUrl));
@@ -344,10 +354,10 @@ class _MonitoringScreenState extends State<MonitoringScreen> {
       child: Opacity(
         opacity: enabled ? 1.0 : 0.5,
         child: Container(
-          height: 54,
+          height: 56,
           decoration: BoxDecoration(
             color: color,
-            borderRadius: BorderRadius.circular(18),
+            borderRadius: BorderRadius.circular(20),
           ),
           child: Row(
             mainAxisAlignment: MainAxisAlignment.center,
@@ -368,4 +378,9 @@ class _MonitoringScreenState extends State<MonitoringScreen> {
       ),
     );
   }
+
+  @override
+  // TODO: implement wantKeepAlive
+  bool get wantKeepAlive => true;
+
 }

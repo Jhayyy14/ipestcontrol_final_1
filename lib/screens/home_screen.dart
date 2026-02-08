@@ -20,8 +20,6 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin, 
 
   final RpiServiceAdapter _rpiService = RpiServiceAdapter();
 
-
-
   bool pestMode = false;
   bool detectionMode = false;
 
@@ -34,6 +32,9 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin, 
   int _extPercentage = 0;
   double _extVoltage = 0.0;
   bool _extAvailable = false;
+
+  // ✅ ADDED: Low battery threshold constant (Step 3)
+  static const int LOW_BATTERY_THRESHOLD = 20;
 
   // Battery animations (Internal)
   AnimationController? _pulseController;
@@ -51,6 +52,9 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin, 
   static const Color cardWhite = Color(0xFFFFFFFF);
   static const Color textDark = Color(0xFF1E293B);
   static const Color textMuted = Color(0xFF64748B);
+
+  // ✅ ADDED: Step 3 - Helper method for critical battery (using System A)
+  bool get _isBatteryCritical => _batteryPercentage <= LOW_BATTERY_THRESHOLD;
 
   @override
   void initState() {
@@ -101,19 +105,26 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin, 
 
         final wasCharging = _isCharging;
 
+        // ✅ STEP 3: Modified battery stream listener with internal battery check
         setState(() {
-          // System A
+          // System A (Internal) - This is what Step 3 specifies
           if (internal != null) {
             _batteryPercentage = internal['percentage'] ?? 0;
             _isCharging = internal['is_charging'] ?? false;
             _isPowerConnected = internal['power_connected'] ?? false;
           }
 
-          // System B
+          // System B (External) - Keep for reference
           if (external != null) {
             _extPercentage = external['percent'] ?? 0;
             _extVoltage = (external['voltage'] ?? 0.0).toDouble();
             _extAvailable = external['available'] ?? false;
+          }
+
+          // ✅ STEP 3: LOW BATTERY SAFETY LOCK (using System A)
+          if (_batteryPercentage <= LOW_BATTERY_THRESHOLD) {
+            pestMode = false;
+            detectionMode = false;
           }
         });
 
@@ -133,7 +144,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin, 
   void dispose() {
     // ✅ REMOVE OBSERVER
     WidgetsBinding.instance.removeObserver(this);
-    
+
     _pageController.dispose();
     _pulseController?.dispose();
     _waveController?.dispose();
@@ -160,17 +171,17 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin, 
 
     _pageController
         .animateToPage(
-          index,
-          duration: const Duration(milliseconds: 350),
-          curve: Curves.easeInOutCubic,
-        )
+      index,
+      duration: const Duration(milliseconds: 350),
+      curve: Curves.easeInOutCubic,
+    )
         .then((_) {
-          if (mounted) {
-            setState(() {
-              _isAnimating = false;
-            });
-          }
+      if (mounted) {
+        setState(() {
+          _isAnimating = false;
         });
+      }
+    });
   }
 
   // --- HELPERS FOR INTERNAL BATTERY ---
@@ -253,16 +264,16 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin, 
               children: [
                 _buildHeader(),
                 const SizedBox(height: 32),
-                
+
                 // System A
                 const Padding(
                   padding: EdgeInsets.only(left: 4, bottom: 8),
                   child: Text("SYSTEM A (BRAIN)", style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: textMuted)),
                 ),
                 _buildBatteryCard(),
-                
+
                 const SizedBox(height: 16),
-                
+
                 // System B
                 const Padding(
                   padding: EdgeInsets.only(left: 4, bottom: 8),
@@ -528,8 +539,8 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin, 
                               _isCharging
                                   ? Icons.bolt_rounded
                                   : _isPowerConnected
-                                      ?  Icons.power_rounded
-                                      : Icons.battery_std_rounded,
+                                  ?  Icons.power_rounded
+                                  : Icons.battery_std_rounded,
                               size: 16,
                               color: batteryColor,
                             ),
@@ -538,8 +549,8 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin, 
                               _isCharging
                                   ? 'Charging in progress'
                                   : _isPowerConnected
-                                      ? 'Fully charged'
-                                      : 'Running on UPS',
+                                  ? 'Fully charged'
+                                  : 'Running on UPS',
                               style: const TextStyle(
                                 fontSize: 13,
                                 color: textMuted,
@@ -548,6 +559,27 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin, 
                             ),
                           ],
                         ),
+
+                        // ✅ STEP 3: Optional Visual Warning (recommended)
+                        if (_isBatteryCritical)
+                          Padding(
+                            padding: const EdgeInsets.only(top: 12),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: const [
+                                Icon(Icons.warning_amber_rounded, color: Colors.red, size: 18),
+                                SizedBox(width: 6),
+                                Text(
+                                  'Low Battery – System Protection Active',
+                                  style: TextStyle(
+                                    color: Colors.red,
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 12,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
                       ],
                     ),
                   ),
@@ -560,12 +592,12 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin, 
     );
   }
 
-  // --- EXTERNAL BATTERY CARD (SYSTEM B) ---
+// --- EXTERNAL BATTERY CARD (SYSTEM B) ---
   Widget _buildExternalBatteryCard() {
     // 12V System uses Amber/Orange to signify High Power / "Muscle"
     Color extColor = _extAvailable ? accentAmber : Colors.grey;
     Color extBg = _extAvailable ? const Color(0xFFFFF7ED) : const Color(0xFFF1F5F9);
-    
+
     return Container(
       width: double.infinity,
       decoration: BoxDecoration(
@@ -600,7 +632,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin, 
               ),
             ),
             const SizedBox(width: 20),
-            
+
             // Info
             Expanded(
               child: Column(
@@ -617,14 +649,14 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin, 
                           color: textMuted,
                         ),
                       ),
-                       _buildStatusBadge(
-                         _extAvailable ? extColor : Colors.grey, 
-                         _extAvailable ? "Active" : "Offline"
-                       ),
+                      _buildStatusBadge(
+                          _extAvailable ? extColor : Colors.grey,
+                          _extAvailable ? "Active" : "Offline"
+                      ),
                     ],
                   ),
                   const SizedBox(height: 8),
-                  
+
                   if (_extAvailable)
                     Row(
                       crossAxisAlignment: CrossAxisAlignment.baseline,
@@ -766,75 +798,76 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin, 
 
   Widget _buildProgressBar(Color color, double value) {
     return Container(
-      height: 10,
-      decoration: BoxDecoration(
-        color: color.withOpacity(0.1),
-        borderRadius: BorderRadius.circular(5),
-      ),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(5),
-        child: TweenAnimationBuilder<double>(
-          duration: const Duration(milliseconds: 1000),
-          curve: Curves.easeOutCubic,
-          tween: Tween<double>(
-            begin: 0,
-            end: value,
-          ),
-          builder: (context, val, child) {
-            return Stack(
-              children: [
-                FractionallySizedBox(
-                  widthFactor: val.clamp(0.0, 1.0),
-                  child: Container(
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        colors: [
-                          color.withOpacity(0.7),
-                          color,
+        height: 10,
+        decoration: BoxDecoration(
+          color: color.withOpacity(0.1),
+          borderRadius: BorderRadius.circular(5),
+        ),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(5),
+          child: TweenAnimationBuilder<double>(
+            duration: const Duration(milliseconds: 1000),
+            curve: Curves.easeOutCubic,
+            tween: Tween<double>(
+              begin: 0,
+              end: value,
+            ),
+            builder: (context, val, child) {
+              return Stack(
+                children: [
+                  FractionallySizedBox(
+                    widthFactor: val.clamp(0.0, 1.0),
+                    child: Container(
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          colors: [
+                            color.withOpacity(0.7),
+                            color,
+                          ],
+                        ),
+                        boxShadow: [
+                          BoxShadow(
+                            color: color.withOpacity(0.4),
+                            blurRadius: 8,
+                            spreadRadius: 0,
+                          ),
                         ],
                       ),
-                      boxShadow: [
-                        BoxShadow(
-                          color: color.withOpacity(0.4),
-                          blurRadius: 8,
-                          spreadRadius: 0,
-                        ),
-                      ],
                     ),
                   ),
-                ),
-                if (_isCharging && _waveAnimation != null)
-                  AnimatedBuilder(
-                    animation: _waveAnimation!,
-                    builder: (context, child) {
-                      return Positioned(
-                        left: (val * 300) - 80 +
-                            (math.sin(_waveAnimation!.value) * 15),
-                        child: Container(
-                          width: 80,
-                          height: 10,
-                          decoration: BoxDecoration(
-                            gradient: LinearGradient(
-                              colors: [
-                                Colors.white.withOpacity(0),
-                                Colors.white.withOpacity(0.6),
-                                Colors.white.withOpacity(0),
-                              ],
+                  if (_isCharging && _waveAnimation != null)
+                    AnimatedBuilder(
+                      animation: _waveAnimation!,
+                      builder: (context, child) {
+                        return Positioned(
+                          left: (val * 300) - 80 +
+                              (math.sin(_waveAnimation!.value) * 15),
+                          child: Container(
+                            width: 80,
+                            height: 10,
+                            decoration: BoxDecoration(
+                              gradient: LinearGradient(
+                                colors: [
+                                  Colors.white.withOpacity(0),
+                                  Colors.white.withOpacity(0.6),
+                                  Colors.white.withOpacity(0),
+                                ],
+                              ),
                             ),
                           ),
-                        ),
-                      );
-                    },
-                  ),
-              ],
-            );
-          },
+                        );
+                      },
+                    ),
+                ],
+              );
+            },
+          ),
         ),
-      ),
     );
   }
 
   Widget _buildModeSection() {
+    // ✅ STEP 3: Now using _isBatteryCritical (System A) instead of isLowBattery (System B)
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -878,25 +911,68 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin, 
           ],
         ),
         const SizedBox(height: 24),
-        ModeCard(
-          label: "Pest Mode",
-          value: pestMode,
-          icon: Icons.pest_control_rodent,
-          iconColor: const Color(0xFF8B5A3C),
-          onChanged: (v) {
-            setState(() => pestMode = v);
-            _rpiService.setSystemModes(pestMode, detectionMode);
-          },
+
+        // ✅ MODIFIED: Using _isBatteryCritical for System A
+        if (_isBatteryCritical)
+          Container(
+            margin: const EdgeInsets.only(bottom: 16),
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: Colors.red.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: Colors.red),
+            ),
+            child: Row(
+              children: const [
+                Icon(Icons.warning_amber_rounded, color: Colors.red),
+                SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    "Low Battery (≤20%)\nPest & Insect modes are disabled to protect the system.",
+                    style: TextStyle(
+                      color: Colors.red,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+
+        // ✅ MODIFIED: Pest Mode with System A battery check
+        AbsorbPointer(
+          absorbing: _isBatteryCritical,
+          child: Opacity(
+            opacity: _isBatteryCritical ? 0.5 : 1.0,
+            child: ModeCard(
+              label: "Pest Mode",
+              value: pestMode,
+              icon: Icons.pest_control_rodent,
+              iconColor: _isBatteryCritical ? Colors.grey : const Color(0xFF8B5A3C),
+              onChanged: (v) {
+                setState(() => pestMode = v);
+                _rpiService.setSystemModes(pestMode, detectionMode);
+              },
+            ),
+          ),
         ),
         const SizedBox(height: 16),
-        ModeCard(
-          label: "Insect Mode",
-          value: detectionMode,
-          icon: Icons.bug_report,
-          iconColor: accentAmber,
-          onChanged: (v) {
-            setState(() => detectionMode = v);
-          },
+
+        // ✅ MODIFIED: Insect Mode with System A battery check
+        AbsorbPointer(
+          absorbing: _isBatteryCritical,
+          child: Opacity(
+            opacity: _isBatteryCritical ? 0.5 : 1.0,
+            child: ModeCard(
+              label: "Insect Mode",
+              value: detectionMode,
+              icon: Icons.bug_report,
+              iconColor: _isBatteryCritical ? Colors.grey : accentAmber,
+              onChanged: (v) {
+                setState(() => detectionMode = v);
+              },
+            ),
+          ),
         ),
       ],
     );
@@ -1043,7 +1119,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin, 
             Icon(
               icon,
               size: 24,
-              color: isSelected ?  Colors.transparent : textMuted.withOpacity(0.6),
+              color: isSelected ? Colors.transparent : textMuted.withOpacity(0.6),
             ),
             const SizedBox(height: 4),
             Text(
@@ -1051,7 +1127,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin, 
               style: TextStyle(
                 fontSize: 10,
                 fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
-                color: isSelected ?  primaryIndigo : textMuted,
+                color: isSelected ? primaryIndigo : textMuted,
               ),
             ),
             const SizedBox(height: 8),

@@ -23,7 +23,7 @@ class _SettingsScreenState extends State<SettingsScreen>
   static const Color textDark = Color(0xFF1E293B);
   static const Color textMuted = Color(0xFF64748B);
 
-  static const String PI_PORTAL_URL = 'http://10.42.0.1';
+  static const String PI_PORTAL_URL = 'http://10.42.0.1:8080';
 
   @override
   void initState() {
